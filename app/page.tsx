@@ -1,65 +1,111 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { Header } from "./components/Header";
+import { Sidebar } from "./components/Sidebar";
+import { ProductGrid } from "./components/ProductGrid";
+import { Cart } from "./components/Cart";
+import { Product, CartItem } from "./types";
+import { products } from "./data/products";
 
 export default function Home() {
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Filters
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
+  const [primeOnly, setPrimeOnly] = useState(false);
+  const [minRating, setMinRating] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Cart actions
+  const addToCart = (product: Product) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prev, { ...product, quantity: 1 }];
+    });
+  };
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      setCart((prev) => prev.filter((i) => i.id !== productId));
+      return;
+    }
+    setCart((prev) =>
+      prev.map((i) => (i.id === productId ? { ...i, quantity } : i))
+    );
+  };
+
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Filtered products
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory =
+      selectedCategory === "All" || p.category === selectedCategory;
+    const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+    const matchesPrime = !primeOnly || p.prime;
+    const matchesRating = p.rating >= minRating;
+    const matchesSearch =
+      searchQuery === "" ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return (
+      matchesCategory &&
+      matchesPrice &&
+      matchesPrime &&
+      matchesRating &&
+      matchesSearch
+    );
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen bg-gray-100">
+      <Header
+        cartItemCount={cartItemCount}
+        onCartClick={() => setIsCartOpen(true)}
+      />
+
+      <div className="flex max-w-[1500px] mx-auto">
+        <Sidebar
+          selectedCategory={selectedCategory}
+          priceRange={priceRange}
+          primeOnly={primeOnly}
+          minRating={minRating}
+          onCategoryChange={setSelectedCategory}
+          onPriceChange={setPriceRange}
+          onPrimeChange={setPrimeOnly}
+          onRatingChange={setMinRating}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+
+        <main className="flex-1 p-6">
+          <p className="text-gray-700 mb-4">
+            {filteredProducts.length} results
+            {searchQuery && ` for "${searchQuery}"`}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          <ProductGrid products={filteredProducts} onAddToCart={addToCart} />
+        </main>
+      </div>
+
+      <Cart
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cart}
+        onUpdateQuantity={updateQuantity}
+        onRemoveItem={(id) => updateQuantity(id, 0)}
+        total={cartTotal}
+      />
     </div>
   );
 }
