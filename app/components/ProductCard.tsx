@@ -58,12 +58,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             />
           ))}
         </div>
-        <a
-          href={`/product/${product.id}#reviews`}
+        <span
           className="text-sm text-blue-600 hover:text-orange-600"
         >
           {product.reviews.toLocaleString()}
-        </a>
+        </span>
       </div>
 
       {/* Price */}
